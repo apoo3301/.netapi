@@ -52,5 +52,25 @@ namespace API.Controllers
 
             return Ok(roles);
         }
+
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> DeleteRole(string id)
+        {
+            var role = await _roleManager.FindByIdAsync(id);
+
+            if (role is null)
+            {
+                return NotFound("Role not found.");
+            }
+
+            var result = await _roleManager.DeleteAsync(role);
+
+            if(result.Succeeded)
+            {
+                return Ok(new {message="Role deleted sccessfully."});
+            }
+
+            return BadRequest("Role deletion failed.");
+        }
     }
 }
