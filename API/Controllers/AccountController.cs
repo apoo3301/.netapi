@@ -11,10 +11,11 @@ using Microsoft.IdentityModel.Tokens;
 
 namespace API.Controllers
 {
+    [Authorize]
     [ApiController]
     [Route("api/[controller]")]
-     //api/account
-    public class AccountController:ControllerBase
+    //api/account
+    public class AccountController : ControllerBase
     {
         private readonly UserManager<AppUser> _userManager;
         private readonly RoleManager<IdentityRole> _roleManager;
@@ -30,10 +31,11 @@ namespace API.Controllers
         }
 
         //api/account/register
+        [AllowAnonymous]
         [HttpPost("register")]
         public async Task<ActionResult<String>> Register(RegisterDto registerDto)
         {
-            if(!ModelState.IsValid)
+            if (!ModelState.IsValid)
             {
                 return BadRequest(ModelState);
             }
@@ -47,26 +49,31 @@ namespace API.Controllers
 
             var result = await _userManager.CreateAsync(user, registerDto.Password);
 
-            if(!result.Succeeded)
+            if (!result.Succeeded)
             {
                 return BadRequest(result.Errors);
             }
 
-            if(registerDto.Roles is null){
+            if (registerDto.Roles is null)
+            {
                 await _userManager.AddToRoleAsync(user, "User");
-            } else {
-                foreach(var role in registerDto.Roles)
+            }
+            else
+            {
+                foreach (var role in registerDto.Roles)
                 {
-                    await _userManager.AddToRoleAsync(user,role);
+                    await _userManager.AddToRoleAsync(user, role);
                 }
             }
-            return Ok(new AuthResponseDto{
+            return Ok(new AuthResponseDto
+            {
                 IsSuccess = true,
                 Message = "User created successfully"
             });
         }
 
         //api/account/login
+        [AllowAnonymous]
         [HttpPost("login")]
 
         public async Task<ActionResult<AuthResponseDto>> Login(LoginDto loginDto)
@@ -80,46 +87,51 @@ namespace API.Controllers
 
             if (user is null)
             {
-                return Unauthorized(new AuthResponseDto{
+                return Unauthorized(new AuthResponseDto
+                {
                     IsSuccess = false,
                     Message = "User not found with this email",
                 });
             }
 
-            var result = await _userManager.CheckPasswordAsync(user,loginDto.Password);
+            var result = await _userManager.CheckPasswordAsync(user, loginDto.Password);
 
-            if(!result){
-                return Unauthorized(new AuthResponseDto{
+            if (!result)
+            {
+                return Unauthorized(new AuthResponseDto
+                {
                     IsSuccess = false,
                     Message = "Invalid Password"
                 });
             }
 
             var token = GenerateToken(user);
-            return Ok(new AuthResponseDto{
+            return Ok(new AuthResponseDto
+            {
                 Token = token,
                 IsSuccess = true,
                 Message = "Login Successful",
             });
         }
 
-        private string GenerateToken(AppUser user){
+        private string GenerateToken(AppUser user)
+        {
             var tokenHandler = new JwtSecurityTokenHandler();
-            var key = Encoding.ASCII.GetBytes(_configuration.GetSection("JWTSetting").GetSection("securityKey").Value!);
+            var key = Encoding.ASCII.GetBytes(_configuration["JWTSetting:securityKey"]!);
             var roles = _userManager.GetRolesAsync(user).Result;
-            List<Claim> claims =
-            [
-                new (JwtRegisteredClaimNames.Email,user.Email ?? ""),
-                new (JwtRegisteredClaimNames.Name,user.FullName ?? ""),
-                new (JwtRegisteredClaimNames.NameId,user.Id ?? ""),
-                new (JwtRegisteredClaimNames.Aud,
-                _configuration.GetSection("JWTSetting").GetSection("validAudience").Value!),
-                new (JwtRegisteredClaimNames.Iss,_configuration.GetSection("JWTSetting").GetSection("validIssuer").Value!)
-            ];
 
-            foreach(var role in roles)
+            var claims = new List<Claim>
+    {
+        new (JwtRegisteredClaimNames.Email, user.Email ?? ""),
+        new (JwtRegisteredClaimNames.Name, user.FullName ?? ""),
+        new (JwtRegisteredClaimNames.NameId, user.Id ?? ""),
+        new (JwtRegisteredClaimNames.Aud, _configuration["JWTSetting:validAudience"]!),
+        new (JwtRegisteredClaimNames.Iss, _configuration["JWTSetting:validIssuer"]!)
+    };
+
+            foreach (var role in roles)
             {
-                claims.Add(new Claim(ClaimTypes.Role,role));
+                claims.Add(new Claim(ClaimTypes.Role, role));
             }
 
             var tokenDescriptor = new SecurityTokenDescriptor
@@ -136,6 +148,7 @@ namespace API.Controllers
             return tokenHandler.WriteToken(token);
         }
 
+
         //api/account/detauil
 
         [Authorize]
@@ -147,17 +160,19 @@ namespace API.Controllers
 
             if (user is null)
             {
-                return NotFound(new AuthResponseDto{
+                return NotFound(new AuthResponseDto
+                {
                     IsSuccess = false,
                     Message = "User not found"
                 });
             }
 
-            return Ok(new UserDetailDto{
+            return Ok(new UserDetailDto
+            {
                 Id = user.Id,
                 Email = user.Email,
                 FullName = user.FullName,
-                Roles = [..await _userManager.GetRolesAsync(user)],
+                Roles = [.. await _userManager.GetRolesAsync(user)],
                 PhoneNumber = user.PhoneNumber,
                 PhoneNumberConfirmed = user.PhoneNumberConfirmed,
                 AccessFailedCount = user.AccessFailedCount,
@@ -167,7 +182,8 @@ namespace API.Controllers
         [HttpGet]
         public async Task<ActionResult<IEnumerable<UserDetailDto>>> GetUsers()
         {
-            var users = await _userManager.Users.Select(u=> new UserDetailDto{
+            var users = await _userManager.Users.Select(u => new UserDetailDto
+            {
                 Id = u.Id,
                 Email = u.Email,
                 FullName = u.FullName,

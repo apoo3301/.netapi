@@ -1,17 +1,21 @@
 using API.Dtos;
 using API.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
 namespace API.Controllers
 {
+    [Authorize(Roles = "Admin")]
     [ApiController]
     [Route("api/[controller]")]
-    public class RolesController:ControllerBase
+
+    public class RolesController : ControllerBase
     {
         private readonly RoleManager<IdentityRole> _roleManager;
         private readonly UserManager<AppUser> _userManager;
+
         public RolesController(RoleManager<IdentityRole> roleManager, UserManager<AppUser> userManager)
         {
             _roleManager = roleManager;
@@ -21,30 +25,32 @@ namespace API.Controllers
         [HttpPost]
         public async Task<IActionResult> CreateRole([FromBody] CreateRoleDto createRoleDto)
         {
+
             if (string.IsNullOrEmpty(createRoleDto.RoleName))
             {
-                return BadRequest("Role name is required");
+                return BadRequest("Role name is required.");
             }
 
             var roleExist = await _roleManager.RoleExistsAsync(createRoleDto.RoleName);
-            if(roleExist)
+            if (roleExist)
             {
-                return BadRequest("Role already exist");
+                return BadRequest("Role already exists.");
             }
 
             var roleResult = await _roleManager.CreateAsync(new IdentityRole(createRoleDto.RoleName));
             if (roleResult.Succeeded)
             {
-                return Ok(new {message="Role created successfully"});
+                return Ok(new { message = "Role created successfully." });
             }
-            
-            return BadRequest("Role creation failed");
+
+            return BadRequest("Role creation failed.");
         }
 
         [HttpGet]
         public async Task<ActionResult<IEnumerable<RoleResponseDto>>> GetRoles()
         {
-            var roles = await _roleManager.Roles.Select(r=>new RoleResponseDto{
+            var roles = await _roleManager.Roles.Select(r => new RoleResponseDto
+            {
                 Id = r.Id,
                 Name = r.Name,
                 TotalUsers = _userManager.GetUsersInRoleAsync(r.Name!).Result.Count
@@ -58,16 +64,16 @@ namespace API.Controllers
         {
             var role = await _roleManager.FindByIdAsync(id);
 
-            if (role is null)
+            if (role == null)
             {
                 return NotFound("Role not found.");
             }
 
             var result = await _roleManager.DeleteAsync(role);
 
-            if(result.Succeeded)
+            if (result.Succeeded)
             {
-                return Ok(new {message="Role deleted sccessfully."});
+                return Ok(new { message = "Role deleted successfully." });
             }
 
             return BadRequest("Role deletion failed.");
